@@ -1,8 +1,12 @@
 from Queue import Queue
 from threading import Thread
 from collections import deque
+from math import sqrt, atan2, cos, sin
+from time import sleep
 
 class Crane:
+	(MOVE_ARM, HOOK_UP, HOOK_DOWN, GRAB, DROP) = range(0, 5)
+
 	def __init__(self, position, rangeSight, reach, height, neighbours = []):
 		self.position = position
 		self.rangeSight = rangeSight
@@ -10,7 +14,7 @@ class Crane:
 		self.height = height
 		self.angle = 0
 		self.hookDistance = 1
-		self.hookHeight   = 7
+		self.hookHeight   = height
 		self.neighbours   = neighbours
 
 		self.messages = Queue()
@@ -32,6 +36,41 @@ class Crane:
 	def drop(self):
 		pass
 
+	def moveContainer(self, pos1, pos2):
+		def calcAngleAndShift(pos, armAngle):
+			(dx, dy) = (pos[0] - self.position[0], pos[1] - self.position[1])
+			rotate = ((atan2(dy,dx) - armAngle + pi) % (2*pi)) - pi
+			hookShift = sqrt(dy*dy + dx*dx) - self.hookDistance
+			return (rotate, hookShift)
+
+		(rotate1, shift1) = calcAngleAndShift(pos1, self.angle)
+		(rotate2, shift2) = calcAngleAndShift(pos2, self.angle+rotate1)
+		stack1Size = 1
+		stack2Size = 0
+
+		return [
+			(HOOK_UP, [height - self.hookHeight]),
+			(MOVE_ARM, [rotate1, shift1]), 
+			(HOOK_DOWN, [height - stack1Size]),
+			(GRAB, []),
+			(HOOK_UP, [height - self.hookHeight]),
+			(MOVE_ARM, [rotate2, shift2]), 
+			(HOOK_DOWN, [height - stack2Size]),
+			(DROP, [])
+		]
+
+	def takeOff(self, pos):
+		def findFreePosition():
+			pass
+		free = findFreePosition()
+		return self.moveContainer(pos, free)
+
+	def passOn(self, pos, craneId):
+		def getCommonField(craneID):
+			pass
+		common = getCommonField(craneId)
+		return self.moveContainer(pos, common)
+
 	def sendMessage(self, msg):
 		self.messages.put(msg)
 
@@ -50,8 +89,18 @@ class Crane:
 			left -= 1
 
 	def doInst(self, inst):
-		(cmd, args) = inst
-		cmd(*args)
+		cmd = {
+			MOVE_ARM:  self.moveArm,
+			HOOK_UP:   self.hookUp,
+			HOOK_DOWN: self.hookDown,
+			GRAB:      self.grab,
+			DROP:      self.drop
+		}.get(inst[0])
+		cmd(*inst[1])
+	
+	def plan(self, goal):
+		res = []
+		return res
 
 	def decomposeTask(self, task):
 		res = []
