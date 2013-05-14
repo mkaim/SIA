@@ -6,6 +6,7 @@ from time import sleep
 
 class Crane:
 	(MOVE_ARM, HOOK_UP, HOOK_DOWN, GRAB, DROP) = range(0, 5)
+	(TAKE_OFF, PASS_ON) = range(0+10, 2+10)
 
 	def __init__(self, position, rangeSight, reach, height, neighbours = []):
 		self.position = position
@@ -98,13 +99,12 @@ class Crane:
 		}.get(inst[0])
 		cmd(*inst[1])
 	
-	def plan(self, goal):
-		res = []
-		return res
-
 	def decomposeTask(self, task):
-		res = []
-		return res
+		dec = {
+			TAKE_OFF: self.takeOff,
+			PASS_ON:  self.passOn
+		}.get(task[0])
+		return dec(*task[1])
 
 	def doWork(self):
 		if not(self.instructions):
