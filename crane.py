@@ -1,12 +1,16 @@
 from Queue import Queue
 from threading import Thread
-from collections import deque
-from math import sqrt, atan2, cos, sin
-from time import sleep
+from collections import deque, namedtuple
+from math import sqrt, atan2, cos, sin, pi
+from time import sleep, time
+
+(SEARCH_PACKAGE, PACKAGE_DELIVERED, HAVE_SHIP_PATH) = range(0, 3)
+(MOVE_ARM, HOOK_UP, HOOK_DOWN, GRAB, DROP) = range(10, 15)
+(TAKE_OFF, PASS_ON) = range(20,22)
+
+Message = namedtuple('Message', ['sender', 'type', 'data'])
 
 class Crane:
-	(MOVE_ARM, HOOK_UP, HOOK_DOWN, GRAB, DROP) = range(0, 5)
-	(TAKE_OFF, PASS_ON) = range(0+10, 2+10)
 
 	def __init__(self, id, position, rangeSight, reach, height, neighbours = []):
 		self.id = id
@@ -22,6 +26,10 @@ class Crane:
 		self.messages = Queue()
 		self.tasks = deque()
 		self.instructions = deque()
+
+		self.toShip = []
+		self.inWay  = {}
+		self.wanted = {}
 
 	def moveArm(self, alfa, dist):
 		pass
@@ -51,13 +59,13 @@ class Crane:
 		stack2Size = 0
 
 		return [
-			(HOOK_UP, [height - self.hookHeight]),
-			(MOVE_ARM, [rotate1, shift1]), 
-			(HOOK_DOWN, [height - stack1Size]),
+			(HOOK_UP, [self.height - self.hookHeight]),
+			(MOVE_ARM, [rotate1, shift1 - self.hookDistance]), 
+			(HOOK_DOWN, [self.height - stack1Size]),
 			(GRAB, []),
-			(HOOK_UP, [height - self.hookHeight]),
-			(MOVE_ARM, [rotate2, shift2]), 
-			(HOOK_DOWN, [height - stack2Size]),
+			(HOOK_UP, [self.height - self.hookHeight]),
+			(MOVE_ARM, [rotate2, shift2 - shift1]), 
+			(HOOK_DOWN, [self.height - stack2Size]),
 			(DROP, [])
 		]
 
@@ -73,6 +81,20 @@ class Crane:
 		common = getCommonField(craneId)
 		return self.moveContainer(pos, common)
 
+	def informOthers(self):
+		for c in self.neighbours:
+			if c not in self.toShip:
+				c.sendMessage(Message(self, HAVE_SHIP_PATH, []))
+
+	def startMeasureTime(self, containerId, craneId):
+		self.inWay[containerId] = (craneId, time())
+
+	def stopMeasureTime(self, containerId, stop):
+		(craneId, start) = self.inWay[containerId]
+		measure = start - stop
+		del (self.inWay[containerId])
+		return (craneId, measure)
+
 	def sendMessage(self, msg):
 		self.messages.put(msg)
 
@@ -83,7 +105,13 @@ class Crane:
 		pass
 
 	def readMessage(self, msg):
-		pass
+		if msg.type == SEARCH_PACKAGE:
+			pass
+		elif msg.type == PACKAGE_DELIVERED:
+			if msg.data.containerId in self.inWay:
+				self.stopMeasureTime(msg.data.stop)
+		elif msg.type == HAVE_SHIP_PATH:
+			self.toShip.append(msg.sender)
 
 	def readMessages(self, left=5):
 		while (left > 0 and self.messages):
@@ -103,16 +131,25 @@ class Crane:
 	def decomposeTask(self, task):
 		dec = {
 			TAKE_OFF: self.takeOff,
-			PASS_ON:  self.passOn
+			PASS_ON:  self.passOn,
 		}.get(task[0])
 		return dec(*task[1])
 
+	def isMyArea(self, pos):
+		(x, y) = self.position
+		return max(abs(pos[0]-x), abs(pos[1]-y)) <= self.reach
+
 	def doWork(self):
-		if not(self.instructions):
-			if not(self.tasks):
-				self.instructions.append(self.decomposeTask())
+		if not self.task and self.wanted and self.toShip:
+			pass
+
+		if not self.instructions:
+			if not self.tasks:
+				pass
 			else:
-				self.instructions.append(self.decomposeTask(self.tasks.popleft()))
+				task = self.tasks.popleft()
+				inst = self.decomposeTask(task)
+				self.instructions.append(inst)
 		self.doInst(self.instructions.popleft())
 	
 	def mainLoop(self):
