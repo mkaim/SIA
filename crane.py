@@ -124,7 +124,7 @@ class Crane:
 	def informOthers(self):
 		for c in self.neighbours:
 			if c not in self.toShip:
-				c.sendMessage(Message(self, Message.HAVE_SHIP_PATH, []))
+				c.addMessage(Message(self, Message.HAVE_SHIP_PATH, []))
 
 	def startMeasureTime(self, containerId, craneId):
 		self.inWay[containerId] = (craneId, time())
@@ -135,7 +135,7 @@ class Crane:
 		del (self.inWay[containerId])
 		return (craneId, measure)
 
-	def sendMessage(self, msg):
+	def addMessage(self, msg):
 		self.messages.put(msg)
 
 	def addNeighbour(self, n):
