@@ -12,5 +12,5 @@ if __name__ == '__main__':
 	
 	while True:
 		map.drawMap()
-		crane1.angle = (crane1.angle + 1) % 360
-		crane2.angle = (crane2.angle - 1) % 360
+		#crane1.angle = (crane1.angle + 1) % 360
+		#crane2.angle = (crane2.angle - 1) % 360

@@ -12,7 +12,7 @@ Message = namedtuple('Message', ['sender', 'type', 'data'])
 
 class Crane:
 
-	def __init__(self, id, position, rangeSight, reach, height, neighbours = []):
+	def __init__(self, id, position, rangeSight, reach, height, neighbours, map):
 		self.id = id
 		self.position = position
 		self.rangeSight = rangeSight
@@ -22,6 +22,7 @@ class Crane:
 		self.hookDistance = 1
 		self.hookHeight   = height
 		self.neighbours   = neighbours
+		self.map   = map
 
 		self.messages = Queue()
 		self.tasks = deque()
@@ -30,6 +31,7 @@ class Crane:
 		self.toShip = []
 		self.inWay  = {}
 		self.wanted = {}
+		self.createThread().start()
 
 	def moveArm(self, alfa, dist):
 		pass
@@ -114,7 +116,7 @@ class Crane:
 			self.toShip.append(msg.sender)
 
 	def readMessages(self, left=5):
-		while (left > 0 and self.messages):
+		while (left > 0 and not self.messages.empty()):
 			self.readMessage(self.messages.get())
 			left -= 1
 
@@ -140,12 +142,13 @@ class Crane:
 		return max(abs(pos[0]-x), abs(pos[1]-y)) <= self.reach
 
 	def doWork(self):
-		if not self.task and self.wanted and self.toShip:
+		if not self.tasks and self.wanted and self.toShip:
 			pass
 
 		if not self.instructions:
 			if not self.tasks:
-				pass
+				inst = self.doNothing()
+				self.instructions.append(inst)
 			else:
 				task = self.tasks.popleft()
 				inst = self.decomposeTask(task)
@@ -154,6 +157,7 @@ class Crane:
 	
 	def mainLoop(self):
 		while True:
+			self.angle = (self.angle + 1) % 360
 			self.examineSurroundings()
 			self.readMessages()
 			self.doWork()
