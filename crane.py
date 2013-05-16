@@ -4,9 +4,11 @@ from collections import deque, namedtuple
 from math import sqrt, atan2, cos, sin, pi
 from time import sleep, time
 from message import Message
+from field import Field
+from random import randrange
 
 (MOVE_ARM, HOOK_UP, HOOK_DOWN, GRAB, DROP, NOTHING) = range(10, 16)
-(TAKE_OFF, PASS_ON, KEEP_BUSY) = range(20,23)
+(TAKE_OFF, PASS_ON, LOAD_SHIP, KEEP_BUSY) = range(20,24)
 
 class Crane:
 	def __init__(self, id, position, rangeSight, reach, height, neighbours, map):
@@ -21,15 +23,17 @@ class Crane:
 		self.neighbours   = neighbours
 		self.map = map
 
+		self.crate = None
+
 		self.messages = Queue()
 		self.tasks = deque()
 		self.instructions = deque()
 
-		self.directToShip = False #boolean value if the crane has direct access to the ship
+		self.directToShip = 0 #boolean value if the crane has direct access to the ship
 		self.toShip = []
-		self.inWay  = {}
-		self.wanted = {}
+		self.wanted = set() #all packages wanted by ship
 		self.onMyArea = {} #packages on my field after examineSurroundings
+		self.inWay  = {}
 
 		self.thread = self.createThread()
 		self.running = True
@@ -73,15 +77,22 @@ class Crane:
 
 	def grab(self):
 		sleep(0.03)
+		y = int(round(sin(self.angle)*self.hookDistance)) + self.position[0]
+		x = int(round(cos(self.angle)*self.hookDistance)) + self.position[1]
+		print self.id, "grab from", (y,x)
+		self.crate = self.map.map[y][x].removeCrateFromTop()
 	
 	def drop(self):
 		sleep(0.03)
+		y = int(round(sin(self.angle)*self.hookDistance)) + self.position[0]
+		x = int(round(cos(self.angle)*self.hookDistance)) + self.position[1]
+		self.map.map[y][x].putCrateOnTop(self.crate)
+		self.crate = None
 
 	def doNothing(self):
 		for i in range(0,5):
 			self.angle += 0.1
 			sleep(0.03)
-
 
 	def moveContainer(self, pos1, pos2):
 		def calcAngleAndShift(pos, armAngle, hookDist):
@@ -113,10 +124,13 @@ class Crane:
 		return self.moveContainer(pos, free)
 
 	def passOn(self, pos, craneId):
-		def getCommonField(craneID):
-			pass
-		common = getCommonField(craneId)
+		common = (3,4)
 		return self.moveContainer(pos, common)
+	
+	def loadShip(self, pos):
+		randY = randrange(-self.reach, self.reach)
+		shipPos = (self.position[0] + randY, self.map.colNum-1)
+		return self.moveContainer(pos, shipPos)
 	
 	def keepBusy(self):
 		return [(NOTHING, [])]
@@ -142,26 +156,28 @@ class Crane:
 		self.neighbours.append(n)
 
 	def examineSurroundings(self):
-		for x in xrange(self.position[0]-self.reach, self.position[0]+self.reach+1):
-			for y in xrange(self.position[1]-self.reach, self.position[1]+self.reach+1):
+		for y in xrange(self.position[0]-self.reach, self.position[0]+self.reach+1):
+			for x in xrange(self.position[1]-self.reach, self.position[1]+self.reach+1):
 				if( x < self.map.colNum and y < self.map.rowNum):
-					if(self.map.fieldType(x, y) == 0):
-						field = self.map.field(x, y).getAllCratesIds()
+					if(self.map.fieldType(y, x) == Field.STORAGE_TYPE):
+						field = self.map.field(y, x).getAllCratesIds()
 						for i in xrange(len(field)):
-							self.onMyArea[field[i]] = (x, y)
-			if self.position[0] + self.reach > self.map.colNum:
-				self.directToShip = True #maybe should be in init in order to not check it whole time
+							self.onMyArea[field[i]] = (y, x)
+			if self.position[1] + self.reach >= self.map.colNum-1:
+				self.directToShip = 1 #maybe should be in init in order to not check it whole time
 
 	def readMessage(self, msg):
 		if msg.type == Message.SEARCH_PACKAGE:
-			print "got message: ship needs %s \n" % (msg.data)
-			for i in xrange(len(msg.data)):
-				if msg.data[i] in self.onMyArea:
-					print "%s is on %s" % (msg.data[i], self.onMyArea[msg.data[i]])
+			self.wanted.update(msg.data)
+			print "got message: ship needs %s \n" % (self.wanted)
+			for pkg in msg.data:
+				if pkg in self.onMyArea:
+					print "%s is on %s" % (pkg, self.onMyArea[pkg])
 
 		elif msg.type == Message.PACKAGE_DELIVERED:
 			if msg.data.containerId in self.inWay:
 				self.stopMeasureTime(msg.data.stop)
+			self.wanted.discard(msg.data.containerId)
 
 		elif msg.type == Message.HAVE_SHIP_PATH:
 			self.toShip.append(msg.sender)
@@ -177,8 +193,8 @@ class Crane:
 			MOVE_ARM:  self.moveArm,
 			HOOK_UP:   self.hookUp,
 			HOOK_DOWN: self.hookDown,
-			GRAB:	  self.grab,
-			DROP:	  self.drop,
+			GRAB:	   self.grab,
+			DROP:	   self.drop,
 			NOTHING:   self.doNothing
 		}.get(inst[0])
 		cmd(*inst[1])
@@ -187,6 +203,7 @@ class Crane:
 		dec = {
 			TAKE_OFF:  self.takeOff,
 			PASS_ON:   self.passOn,
+			LOAD_SHIP: self.loadShip,
 			KEEP_BUSY: self.keepBusy
 		}.get(task[0])
 		return dec(*task[1])
@@ -195,10 +212,45 @@ class Crane:
 		(x, y) = self.position
 		return max(abs(pos[0]-x), abs(pos[1]-y)) <= self.reach
 
+	def getPackagesToDeliver(self):
+		res = []
+		for pkg in self.wanted:
+			if pkg in self.onMyArea:
+				isMine = True
+				pkg_pos = self.onMyArea[pkg]
+				if pkg_pos[1] == self.map.colNum-1:
+					isMine = False
+				else:
+					for c in self.toShip:
+						if c.isInArea(pkg_pos):
+							isMine = False
+							break
+				if isMine:
+					res.append(pkg)
+		return res
+
+
 	def doWork(self):
+		if self.directToShip == 1:
+			self.directToShip = 2
+			self.informOthers()
+		
 		if not self.tasks:
-			if self.wanted and self.toShip:
-				pass
+			if self.toShip or self.directToShip:
+				packages = self.getPackagesToDeliver()
+				if packages:
+					pkg = packages[0]
+					pkg_pos = self.onMyArea[pkg]
+					(y,x) = pkg_pos
+					tasks = [(TAKE_OFF, [pkg_pos])] * self.map.map[y][x].getCratePosition(pkg)
+					if self.directToShip:
+						tasks.append((LOAD_SHIP, [pkg_pos]))
+					else:
+						nextCraneId = self.toShip[0]
+						tasks.append((PASS_ON, [pkg_pos, nextCraneId]))
+					self.tasks.extend(tasks)
+				else:
+					self.tasks.append((KEEP_BUSY, []))
 			else:
 				self.tasks.append((KEEP_BUSY, []))
 
@@ -206,6 +258,7 @@ class Crane:
 			task = self.tasks.popleft()
 			inst = self.decomposeTask(task)
 			self.instructions.extend(inst)
+			#self.instructions.extend(self.moveContainer((4,4), (2,5)))
 
 		self.doInst(self.instructions.popleft())
 	

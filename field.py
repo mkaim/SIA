@@ -47,7 +47,7 @@ class Field:
 	def removeCrateFromTop(self):
 		if self.type == Field.CRANE_TYPE or len(self.objectsList) < 1:
 			raise Exception("Invalid Request")
-		self.objectsList.pop()
+		return self.objectsList.pop()
 			
 			
 	def putCrateOnTop(self, crate):
