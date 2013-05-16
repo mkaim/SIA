@@ -40,8 +40,8 @@ class Crane:
 		self.thread.start()
 
 	def moveArm(self, alfa, dist):
-		alfaStep = 0.1 * (-1 if alfa < 0 else 1)
-		distStep = 0.1 * (-1 if dist < 0 else 1)
+		alfaStep = 0.03 * (-1 if alfa < 0 else 1)
+		distStep = 0.03 * (-1 if dist < 0 else 1)
 
 		while abs(alfa) > abs(alfaStep):
 			self.angle += alfaStep
@@ -55,6 +55,7 @@ class Crane:
 		while abs(dist) > abs(distStep):
 			self.hookDistance += distStep
 			dist -= distStep
+			sleep(0.03)
 		self.hookDistance += dist
 	
 	def hookDown(self, dist):
@@ -120,15 +121,20 @@ class Crane:
 	def takeOff(self, pos):
 		free = None
 		while True:
-			randY = randrange(-self.reach, self.reach) + self.position[0]
-			randX = randrange(-self.reach, self.reach) + self.position[1]
-			if self.isInArea(free) and free != pos:
+			freeY = randrange(-self.reach, self.reach+1) + self.position[0]
+			freeX = randrange(-self.reach, self.reach+1) + self.position[1]
+			free = (freeY, freeX)
+			if free != pos and self.map.inRange(free) and self.map.map[freeY][freeX].type == Field.STORAGE_TYPE:
 				break
 		return self.moveContainer(pos, free)
 
-	def passOn(self, pos, craneId):
-		common = (3,4)
-		return self.moveContainer(pos, common)
+	def passOn(self, pos, crane):
+		(topLeft, h, w) = self.map.commonArea(self, crane)
+		commonY = topLeft[0] + randrange(0, h+1)
+		commonX = topLeft[1] + randrange(0, w+1)
+		print "passon pos", pos
+		#return self.moveContainer(pos, (commonY,commonX))
+		return self.moveContainer(pos, (3,4))
 	
 	def loadShip(self, pos):
 		randY = randrange(-self.reach, self.reach)
@@ -216,8 +222,13 @@ class Crane:
 		(x, y) = self.position
 		return max(abs(pos[0]-x), abs(pos[1]-y)) <= self.reach
 
-	def getPackagesToDeliver(self):
-		res = []
+	def getPackageLevel(self, crateId):
+		(y,x) = self.onMyArea[crateId]
+		return self.map.map[y][x].getCratePosition(crateId)
+
+	def getPackageToDeliver(self):
+		res = None
+		resLvl = 10000
 		for pkg in self.wanted:
 			if pkg in self.onMyArea:
 				isMine = True
@@ -230,7 +241,10 @@ class Crane:
 							isMine = False
 							break
 				if isMine:
-					res.append(pkg)
+					pkgLvl = self.getPackageLevel(pkg)
+					if resLvl > pkgLvl:
+						res = pkg
+						resLvl = pkgLvl
 		return res
 
 
@@ -241,18 +255,16 @@ class Crane:
 		
 		if not self.tasks and not self.instructions:
 			if self.toShip or self.directToShip:
-				packages = self.getPackagesToDeliver()
-				if packages:
-					pkg = packages[0]
+				pkg = self.getPackageToDeliver()
+				if pkg:
 					pkg_pos = self.onMyArea[pkg]
-					print self.id, "task: move", pkg, "from", pkg_pos
-					(y,x) = pkg_pos
-					tasks = [(TAKE_OFF, [pkg_pos])] * self.map.map[y][x].getCratePosition(pkg)
+					print pkg, "on pos", pkg_pos, "lvl", self.getPackageLevel(pkg)
+					tasks = [(TAKE_OFF, [pkg_pos])] * self.getPackageLevel(pkg)
 					if self.directToShip:
 						tasks.append((LOAD_SHIP, [pkg_pos]))
 					else:
-						nextCraneId = self.toShip[0]
-						tasks.append((PASS_ON, [pkg_pos, nextCraneId]))
+						nextCrane = self.toShip[0]
+						tasks.append((PASS_ON, [pkg_pos, nextCrane]))
 					self.tasks.extend(tasks)
 				else:
 					self.tasks.append((KEEP_BUSY, []))

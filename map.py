@@ -14,7 +14,7 @@ class Map:
 		
 		self.map[0][0] = Field(Field.STORAGE_TYPE, [Crate(1, 3), Crate(5, 2), Crate(22, 3)])
 		self.map[4][4] = Field(Field.STORAGE_TYPE, [Crate(8, 3), Crate(772, 2)])
-		self.map[3][2] = Field(Field.STORAGE_TYPE, [Crate(7, 3)])
+		self.map[3][2] = Field(Field.STORAGE_TYPE, [Crate(7, 3), Crate(432,3), Crate(433,1)])
 		c1 = Crane(1, (2, 3), 3, 1, 10, [], self)
 		c2 = Crane(2, (3, 5), 3, 2, 10, [], self)
 		c2.addNeighbour(c1)
@@ -29,6 +29,9 @@ class Map:
 	def field(self, row, col):
 		return self.map[row][col]
 
+	def inRange(self, pos):
+		(y, x) = pos
+		return y >= 0 and x >= 0 and y < self.rowNum and x < self.colNum
 
 	# Returns ((leftUpperCornerRow, leftUpperCornerCol), height, width) or None
 	def commonArea(self, crane1, crane2):

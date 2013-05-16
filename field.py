@@ -39,7 +39,7 @@ class Field:
 		if self.type == Field.CRANE_TYPE:
 			raise Exception("Invalid Request")
 		for i in xrange(len(self.objectsList)):
-			if self.objectsList[i] == crateId:
+			if self.objectsList[i].id == crateId:
 				return (len(self.objectsList) - i - 1)  # 0 = top of the stack, i.e. no crates are on the crate
 		return -1
 		
