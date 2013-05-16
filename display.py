@@ -41,6 +41,7 @@ class Display:
 	
 	
 	def drawStuff(self, map):
+		craneRectsList = []
 		for row in xrange(map.rowNum):
 			for col in xrange(map.colNum):
 				rect = pygame.draw.rect(self.windowSurface, Display.BLACK, (10 + col * self.fieldSize, 10 + row * self.fieldSize, self.fieldSize, self.fieldSize), 1)
@@ -49,6 +50,7 @@ class Display:
 					crane = map.field(row, col).getCrane()
 					
 					craneRect = pygame.draw.circle(self.windowSurface, (100, 100, 100), (rect.centerx, rect.centery), self.fieldSize / 2, 0)
+					craneRectsList.append(craneRect)
 					
 					craneIdText = self.basicFont.render(str(crane.id), True, Display.WHITE, (100, 100, 100))
 					craneIdTextRect = craneIdText.get_rect()
@@ -65,9 +67,6 @@ class Display:
 					craneHeldCrateIdRect.centerx = craneRect.centerx
 					craneHeldCrateIdRect.centery = craneRect.centery + self.fieldSize / 4
 					self.windowSurface.blit(craneHeldCrateId, craneHeldCrateIdRect)
-					
-					armLen = sqrt(2) * crane.reach * self.fieldSize
-					pygame.draw.line(self.windowSurface, Display.BLACK, (craneRect.centerx, craneRect.centery), (craneRect.centerx + cos(crane.angle) * armLen, craneRect.centery + sin(crane.angle) * armLen), 3)
 					continue
 				
 				if map.field(row, col).countCrates() == 0:
@@ -80,6 +79,10 @@ class Display:
 					crateIdRect.centerx = rect.centerx
 					crateIdRect.centery = rect.bottom - (self.fieldSize / 4) * i - self.fontSize / 2
 					self.windowSurface.blit(crateId, crateIdRect)
+
+		for craneRect in craneRectsList:
+			armLen = sqrt(2) * crane.reach * self.fieldSize
+			pygame.draw.line(self.windowSurface, Display.BLACK, (craneRect.centerx, craneRect.centery), (craneRect.centerx + cos(crane.angle) * armLen, craneRect.centery + sin(crane.angle) * armLen), 3)
 
 
 					
