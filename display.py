@@ -56,7 +56,11 @@ class Display:
 					craneIdTextRect.centery = craneRect.centery - self.fieldSize / 4
 					self.windowSurface.blit(craneIdText, craneIdTextRect)
 					
-					craneHeldCrateId = self.basicFont.render('---', True, Display.WHITE, (100, 100, 100))
+					if crane.crate == None:
+						heldCrateId = "---"
+					else:
+						heldCrateId = self.crateIdToString(crane.crate.id)
+					craneHeldCrateId = self.basicFont.render(heldCrateId, True, Display.WHITE, (100, 100, 100))
 					craneHeldCrateIdRect = craneHeldCrateId.get_rect()
 					craneHeldCrateIdRect.centerx = craneRect.centerx
 					craneHeldCrateIdRect.centery = craneRect.centery + self.fieldSize / 4
