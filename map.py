@@ -16,7 +16,7 @@ class Map:
 		self.map[4][4] = Field(Field.STORAGE_TYPE, [Crate(8, 3), Crate(772, 2)])
 		self.map[3][2] = Field(Field.STORAGE_TYPE, [Crate(7, 3)])
 		c1 = Crane(1, (2, 3), 3, 1, 10, [], self)
-		c2 = Crane(2, (3, 5), 3, 1, 10, [], self)
+		c2 = Crane(2, (3, 5), 3, 2, 10, [], self)
 		c2.addNeighbour(c1)
 		self.map[2][3] = Field(Field.CRANE_TYPE, [c1])
 		self.map[3][5] = Field(Field.CRANE_TYPE, [c2])

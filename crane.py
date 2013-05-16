@@ -91,8 +91,8 @@ class Crane:
 
 	def doNothing(self):
 		for i in range(0,5):
-			self.angle += 0.1
-			sleep(0.03)
+			self.angle += 0.03
+			sleep(0.05)
 
 	def moveContainer(self, pos1, pos2):
 		def calcAngleAndShift(pos, armAngle, hookDist):
@@ -118,9 +118,12 @@ class Crane:
 		]
 
 	def takeOff(self, pos):
-		def findFreePosition():
-			pass
-		free = findFreePosition()
+		free = None
+		while True:
+			randY = randrange(-self.reach, self.reach) + self.position[0]
+			randX = randrange(-self.reach, self.reach) + self.position[1]
+			if self.isInArea(free) and free != pos:
+				break
 		return self.moveContainer(pos, free)
 
 	def passOn(self, pos, craneId):
@@ -156,6 +159,7 @@ class Crane:
 		self.neighbours.append(n)
 
 	def examineSurroundings(self):
+		self.onMyArea.clear()
 		for y in xrange(self.position[0]-self.reach, self.position[0]+self.reach+1):
 			for x in xrange(self.position[1]-self.reach, self.position[1]+self.reach+1):
 				if( x < self.map.colNum and y < self.map.rowNum):
@@ -235,12 +239,13 @@ class Crane:
 			self.directToShip = 2
 			self.informOthers()
 		
-		if not self.tasks:
+		if not self.tasks and not self.instructions:
 			if self.toShip or self.directToShip:
 				packages = self.getPackagesToDeliver()
 				if packages:
 					pkg = packages[0]
 					pkg_pos = self.onMyArea[pkg]
+					print self.id, "task: move", pkg, "from", pkg_pos
 					(y,x) = pkg_pos
 					tasks = [(TAKE_OFF, [pkg_pos])] * self.map.map[y][x].getCratePosition(pkg)
 					if self.directToShip:
@@ -258,7 +263,6 @@ class Crane:
 			task = self.tasks.popleft()
 			inst = self.decomposeTask(task)
 			self.instructions.extend(inst)
-			#self.instructions.extend(self.moveContainer((4,4), (2,5)))
 
 		self.doInst(self.instructions.popleft())
 	
