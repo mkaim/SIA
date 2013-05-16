@@ -3,15 +3,12 @@ from threading import Thread
 from collections import deque, namedtuple
 from math import sqrt, atan2, cos, sin, pi
 from time import sleep, time
+from message import Message
 
-(SEARCH_PACKAGE, PACKAGE_DELIVERED, HAVE_SHIP_PATH) = range(0, 3)
 (MOVE_ARM, HOOK_UP, HOOK_DOWN, GRAB, DROP, NOTHING) = range(10, 16)
 (TAKE_OFF, PASS_ON, KEEP_BUSY) = range(20,23)
 
-Message = namedtuple('Message', ['sender', 'type', 'data'])
-
 class Crane:
-
 	def __init__(self, id, position, rangeSight, reach, height, neighbours, map):
 		self.id = id
 		self.position = position
@@ -22,44 +19,73 @@ class Crane:
 		self.hookDistance = 1
 		self.hookHeight   = height
 		self.neighbours   = neighbours
-		self.map   = map
+		self.map = map
 
 		self.messages = Queue()
 		self.tasks = deque()
 		self.instructions = deque()
 
+		self.directToShip = False #boolean value if the crane has direct access to the ship
 		self.toShip = []
 		self.inWay  = {}
 		self.wanted = {}
+		self.onMyArea = {} #packages on my field after examineSurroundings
 
 		self.thread = self.createThread()
 		self.running = True
 		self.thread.start()
 
 	def moveArm(self, alfa, dist):
-		pass
+		alfaStep = 0.1 * (-1 if alfa < 0 else 1)
+		distStep = 0.1 * (-1 if dist < 0 else 1)
+
+		while abs(alfa) > abs(alfaStep):
+			self.angle += alfaStep
+			alfa -= alfaStep
+			if abs(dist) > abs(distStep):
+				self.hookDistance += distStep
+				dist -= distStep
+			sleep(0.03)
+		self.angle += alfa
+
+		while abs(dist) > abs(distStep):
+			self.hookDistance += distStep
+			dist -= distStep
+		self.hookDistance += dist
 	
 	def hookDown(self, dist):
-		pass
+		distStep = 0.5
+		while dist > distStep:
+			self.hookHeight -= distStep
+			dist -= distStep
+			sleep(0.03)
+		self.hookHeight -= dist
+		sleep(0.03)
 
 	def hookUp(self, dist):
-		pass
+		distStep = 0.5
+		while dist > distStep:
+			self.hookHeight += distStep
+			dist -= distStep
+			sleep(0.03)
+		self.hookHeight += dist
+		sleep(0.03)
 
 	def grab(self):
-		pass
+		sleep(0.03)
 	
 	def drop(self):
-		pass
+		sleep(0.03)
 
 	def doNothing(self):
 		for i in range(0,5):
 			self.angle += 0.1
-			sleep(0.01)
+			sleep(0.03)
 
 
 	def moveContainer(self, pos1, pos2):
 		def calcAngleAndShift(pos, armAngle, hookDist):
-			(dx, dy) = (pos[0] - self.position[0], pos[1] - self.position[1])
+			(dy, dx) = (pos[0] - self.position[0], pos[1] - self.position[1])
 			rotate = ((atan2(dy,dx) - armAngle + pi) % (2*pi)) - pi
 			hookShift = sqrt(dy*dy + dx*dx) - hookDist
 			return (rotate, hookShift)
@@ -98,7 +124,7 @@ class Crane:
 	def informOthers(self):
 		for c in self.neighbours:
 			if c not in self.toShip:
-				c.sendMessage(Message(self, HAVE_SHIP_PATH, []))
+				c.sendMessage(Message(self, Message.HAVE_SHIP_PATH, []))
 
 	def startMeasureTime(self, containerId, craneId):
 		self.inWay[containerId] = (craneId, time())
@@ -116,15 +142,28 @@ class Crane:
 		self.neighbours.append(n)
 
 	def examineSurroundings(self):
-		pass
+		for x in xrange(self.position[0]-self.reach, self.position[0]+self.reach+1):
+			for y in xrange(self.position[1]-self.reach, self.position[1]+self.reach+1):
+				if( x < self.map.colNum and y < self.map.rowNum):
+					if(self.map.fieldType(x, y) == 0):
+						field = self.map.field(x, y).getAllCratesIds()
+						for i in xrange(len(field)):
+							self.onMyArea[field[i]] = (x, y)
+			if self.position[0] + self.reach > self.map.colNum:
+				self.directToShip = True #maybe should be in init in order to not check it whole time
 
 	def readMessage(self, msg):
-		if msg.type == SEARCH_PACKAGE:
-			pass
-		elif msg.type == PACKAGE_DELIVERED:
+		if msg.type == Message.SEARCH_PACKAGE:
+			print "got message: ship needs %s \n" % (msg.data)
+			for i in xrange(len(msg.data)):
+				if msg.data[i] in self.onMyArea:
+					print "%s is on %s" % (msg.data[i], self.onMyArea[msg.data[i]])
+
+		elif msg.type == Message.PACKAGE_DELIVERED:
 			if msg.data.containerId in self.inWay:
 				self.stopMeasureTime(msg.data.stop)
-		elif msg.type == HAVE_SHIP_PATH:
+
+		elif msg.type == Message.HAVE_SHIP_PATH:
 			self.toShip.append(msg.sender)
 			self.informOthers()
 
@@ -138,8 +177,8 @@ class Crane:
 			MOVE_ARM:  self.moveArm,
 			HOOK_UP:   self.hookUp,
 			HOOK_DOWN: self.hookDown,
-			GRAB:      self.grab,
-			DROP:      self.drop,
+			GRAB:	  self.grab,
+			DROP:	  self.drop,
 			NOTHING:   self.doNothing
 		}.get(inst[0])
 		cmd(*inst[1])

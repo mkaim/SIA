@@ -1,4 +1,5 @@
 from crane import *
+from ship import *
 from map import *
 
 if __name__ == '__main__':
@@ -9,6 +10,7 @@ if __name__ == '__main__':
 	
 	crane1 = map.field(2, 3).getCrane()
 	crane2 = map.field(3, 5).getCrane()
+	Ship([crane1, crane2], [7, 772, 8])
 	
 	while True:
 		map.drawMap()

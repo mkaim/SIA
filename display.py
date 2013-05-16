@@ -63,7 +63,7 @@ class Display:
 					self.windowSurface.blit(craneHeldCrateId, craneHeldCrateIdRect)
 					
 					armLen = sqrt(2) * crane.reach * self.fieldSize
-					pygame.draw.line(self.windowSurface, Display.BLACK, (craneRect.centerx, craneRect.centery), (craneRect.centerx + cos(radians(crane.angle)) * armLen, craneRect.centery + sin(radians(crane.angle)) * armLen), 3)
+					pygame.draw.line(self.windowSurface, Display.BLACK, (craneRect.centerx, craneRect.centery), (craneRect.centerx + cos(crane.angle) * armLen, craneRect.centery + sin(crane.angle) * armLen), 3)
 					continue
 				
 				if map.field(row, col).countCrates() == 0:
