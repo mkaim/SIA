@@ -28,7 +28,18 @@ class Map:
 		
 	def field(self, row, col):
 		return self.map[row][col]
-		
+
+
+	# Returns ((leftUpperCornerRow, leftUpperCornerCol), height, width) or None
+	def commonArea(self, crane1, crane2):
+		up = max(crane1.position[0] - crane1.reach, crane2.position[0] - crane2.reach)
+		down = min(crane1.position[0] + crane1.reach, crane2.position[0] + crane2.reach)
+		left = max(crane1.position[1] - crane1.reach, crane2.position[1] - crane2.reach)
+		right = min(crane1.position[1] + crane1.reach, crane2.position[1] + crane2.reach)
+		if up > down or left > right:
+			return None
+		return ((up, left), down - up + 1, right - left + 1)
+
 	
 	def drawMap(self):
 		self.display.drawMap(self)
